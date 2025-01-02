@@ -274,11 +274,6 @@ struct ArticleListView: View {
             selectedLabel = label
         }
     }
-    
-    // 新增標籤邏輯 (自行實現)
-    private func addLabel() {
-        // 這裡可以執行新增標籤的邏輯
-    }
 }
 
 extension String {
@@ -302,4 +297,53 @@ func formatContent(content: String, keywords: [String]) -> String {
     }
     
     return formattedContent as String
+}
+
+struct ArticlePicker: View {
+    @Query private var articles: [Article]
+    @Binding var selectedArticle: Article?
+    @AppStorage("CHAT_SELECTED_TITLE") var selectedTitle: String?
+
+    init(selectedLabel: String? = nil, selectedArticle: Binding<Article?>) {
+        self._selectedArticle = selectedArticle
+        let predicate = #Predicate<Article> { article in
+            selectedLabel == nil || article.label?.name == selectedLabel
+        }
+        _articles = Query(filter: predicate, sort: \Article.createdAt, order: .reverse)
+    }
+
+    var body: some View {
+        Picker("Article", selection: $selectedArticle) {
+            Text("None").tag(nil as Article?)
+            ForEach(articles) { article in
+                Text(article.title)
+                    .lineLimit(1)
+                    .tag(article as Article?)
+            }
+        }
+        .pickerStyle(.inline)
+        .onChange(of: selectedArticle) { oldValue, newValue in
+            selectedTitle = newValue?.title
+        }
+    }
+}
+
+struct ArticlePickerView: View {
+    @Query private var labels: [Label]
+    @State private var selectedLabel: Label?
+    @Binding var selectedArticle: Article?
+    
+    var body: some View {
+        Form {
+            Picker("類別", selection: $selectedLabel) {
+                Text("全部").tag(nil as Label?)
+                ForEach(labels) { label in
+                    Text(label.name).tag(label as Label?)
+                }
+            }
+            .pickerStyle(MenuPickerStyle())
+
+            ArticlePicker(selectedLabel: selectedLabel?.name, selectedArticle: $selectedArticle)
+        }
+    }
 }

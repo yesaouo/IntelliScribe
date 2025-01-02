@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 enum Assistant: String {
     case title = "writing headlines"
@@ -128,7 +129,7 @@ class Groq: ObservableObject {
                 ["role": "user", "content": "I have the following document: \(userContent)"]
             ],
             "model": model,
-            "temperature": 0.2,
+            "temperature": 0,
             "max_tokens": 2048,
             "stream": false
         ]
@@ -197,29 +198,33 @@ class Groq: ObservableObject {
 
 struct GroqFormView: View {
     @EnvironmentObject var groq: Groq
-    @Environment(\.presentationMode) var presentationMode
     @State private var apiKey: String = ""
     @State private var selectedModel: String = ""
     @State private var isLoading: Bool = false
-    
+
+    var apiKeyTip = APIKeyTip()
+    var selectModelTip = SelectModelTip()
+
     var body: some View {
         NavigationStack {
             Form {
                 Section(header: Text("API Key")) {
                     HStack {
-                        SecureField("Enter your Groq API Key", text: $apiKey)
+                        SecureField("輸入您的 API Key", text: $apiKey)
                         Button(action: submitAPIKey) {
                             Image(systemName: "arrow.clockwise.circle.fill")
                                 .foregroundColor(apiKey.isEmpty ? .gray : .blue)
-                                .accessibilityLabel("Submit API Key")
+                                .accessibilityLabel("提交 API Key")
                         }
                         .disabled(apiKey.isEmpty)
                     }
+                    // 嵌入提示
+                    TipView(apiKeyTip)
                 }
-                
+
                 if !isLoading, !groq.models.isEmpty {
                     Section(header: Text("Available Models")) {
-                        Picker("Select Model", selection: $selectedModel) {
+                        Picker("選擇模型", selection: $selectedModel) {
                             ForEach(groq.models, id: \.self) { model in
                                 Text(model)
                             }
@@ -228,30 +233,32 @@ struct GroqFormView: View {
                         .onChange(of: selectedModel) { oldValue, newValue in
                             groq.selectedModel = newValue
                         }
+                        // 嵌入模型選擇提示
+                        TipView(selectModelTip)
                     }
                 }
             }
             .navigationTitle("設置")
             .navigationBarTitleDisplayMode(.inline)
-            .overlay {
-                if isLoading {
-                    ProgressView("Loading models...")
-                        .frame(maxWidth: .infinity, alignment: .center)
-                } else if groq.models.isEmpty {
-                    ContentUnavailableView(
-                        "No Models Available",
-                        systemImage: "exclamationmark.circle",
-                        description: Text("Please verify your API Key or try again later.")
-                    )
-                }
-            }
             .onAppear {
                 apiKey = groq.apiKey ?? ""
                 selectedModel = groq.selectedModel ?? ""
             }
         }
+        .overlay {
+            if isLoading {
+                ProgressView("加載模型中...")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            } else if groq.models.isEmpty {
+                ContentUnavailableView(
+                    "沒有可用模型",
+                    systemImage: "exclamationmark.circle",
+                    description: Text("請檢查您的 API Key 或稍後再試。")
+                )
+            }
+        }
     }
-    
+
     private func submitAPIKey() {
         groq.apiKey = apiKey
         isLoading = true
@@ -259,6 +266,7 @@ struct GroqFormView: View {
             await groq.fetchModels()
             selectedModel = groq.selectedModel ?? ""
             isLoading = false
+            apiKeyTip.invalidate(reason: .actionPerformed) // 使提示失效
         }
     }
 }
